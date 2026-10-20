@@ -9,6 +9,8 @@ A multi-tenant portal. Users sign in with a username and password and switch bet
 
 Both apps live in one pnpm workspace and share a single `.env` at the repo root.
 
+> **Doing the assessment?** Start with [TASKS.md](TASKS.md). It explains how to fork this repo, what to build and how to submit.
+
 ## Prerequisites
 
 - Node.js 20.19 or newer
@@ -113,7 +115,7 @@ The schema is in `app/api/prisma/schema.prisma`, the migrations are in `app/api/
 .
 ├── .env.example            # every environment variable
 ├── docker-compose.yml      # local PostgreSQL
-├── TASKS.md                # assessment task list
+├── TASKS.md                # assessment tasks: start here
 └── app/
     ├── api/
     │   ├── prisma/         # schema, migrations, seeder

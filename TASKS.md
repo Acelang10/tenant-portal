@@ -4,6 +4,20 @@ The requirements in this file are the source of truth. The repo may contain outd
 
 You may use AI tools. Along with your code, include a short section titled **"Where I disagreed with the repo or my AI"**, listing anything you chose not to follow and why.
 
+## Getting started
+
+1. **Fork this repository** to your own GitHub account. Keep the fork private.
+2. Clone your fork and follow [Run it locally](README.md#run-it-locally) in the README.
+3. Work through the **To do** sections below, committing to your fork as you go.
+
+## Submitting
+
+When you're done, send us:
+
+- the URL of your fork, with the reviewers we named added as collaborators
+- the live portal and API URLs from the hosting task
+- your **"Where I disagreed with the repo or my AI"** notes, either in a Markdown file in your fork or in your submission message
+
 ## Done
 
 - [x] **Monorepo setup:** NestJS API in `app/api`, Next.js portal in `app/portal`, one pnpm workspace
