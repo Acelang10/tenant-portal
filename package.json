@@ -1,0 +1,22 @@
+{
+  "name": "tenant-portal",
+  "private": true,
+  "scripts": {
+    "api:dev": "pnpm --filter api dev",
+    "api:build": "pnpm --filter api build",
+    "api:start": "pnpm --filter api start:prod",
+    "portal:dev": "pnpm --filter portal dev",
+    "portal:build": "pnpm --filter portal build",
+    "portal:start": "pnpm --filter portal start",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter api db:migrate",
+    "db:deploy": "pnpm --filter api db:deploy",
+    "db:seed": "pnpm --filter api db:seed",
+    "db:reset": "pnpm --filter api db:reset"
+  },
+  "packageManager": "pnpm@11.8.0",
+  "engines": {
+    "node": ">=20.19"
+  }
+}
