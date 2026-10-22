@@ -1,24 +1,16 @@
-import {
-  BadRequestException,
-  createParamDecorator,
-  ExecutionContext,
-} from '@nestjs/common';
-import type { Request } from 'express';
-
-export const TENANT_HEADER = 'x-tenant-id';
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import type { TenantContext, TenantRequest } from './tenant.guard.js';
 
 /**
- * The active tenant's id, taken from the `x-tenant-id` header.
- * The API gateway validates this header against the session before requests
- * reach the API (see AGENTS.md), so it can be used as-is.
+ * The active tenant and the signed-in user's role in it, as validated by
+ * TenantGuard. Only use on routes guarded by AuthGuard and TenantGuard.
  */
 export const CurrentTenant = createParamDecorator(
-  (_data: unknown, context: ExecutionContext): string => {
-    const request = context.switchToHttp().getRequest<Request>();
-    const tenantId = request.header(TENANT_HEADER);
-    if (!tenantId) {
-      throw new BadRequestException(`Missing ${TENANT_HEADER} header`);
+  (_data: unknown, context: ExecutionContext): TenantContext => {
+    const { tenant } = context.switchToHttp().getRequest<TenantRequest>();
+    if (!tenant) {
+      throw new Error('CurrentTenant used on a route without TenantGuard');
     }
-    return tenantId;
+    return tenant;
   },
 );

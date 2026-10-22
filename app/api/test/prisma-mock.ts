@@ -12,7 +12,7 @@ const modelMethods = [
   'count',
 ] as const;
 
-type MockModel = Record<(typeof modelMethods)[number], Mock>;
+export type MockModel = Record<(typeof modelMethods)[number], Mock>;
 
 function mockModel(): MockModel {
   return Object.fromEntries(
@@ -30,6 +30,7 @@ type PrismaMock = {
   tenant: MockModel;
   tenantUser: MockModel;
   $transaction: Mock;
+  $queryRaw: Mock;
 };
 
 export function createPrismaMock(): PrismaService & PrismaMock {
@@ -40,6 +41,7 @@ export function createPrismaMock(): PrismaService & PrismaMock {
     $transaction: vi.fn((arg: unknown) =>
       typeof arg === 'function' ? arg(prisma) : Promise.all(arg as unknown[]),
     ),
+    $queryRaw: vi.fn().mockResolvedValue([]),
   };
   return prisma as unknown as PrismaService & PrismaMock;
 }
