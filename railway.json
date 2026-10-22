@@ -1,0 +1,12 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "RAILPACK",
+    "buildCommand": "pnpm install --frozen-lockfile && pnpm api:build",
+    "watchPatterns": ["app/api/**"]
+  },
+  "deploy": {
+    "preDeployCommand": ["pnpm db:deploy"],
+    "startCommand": "pnpm api:start"
+  }
+}
