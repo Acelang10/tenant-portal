@@ -1,30 +1,49 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { apiFetch, type TenantRole } from "./api";
+import { apiFetch, readApiError, type TenantRole } from "./api";
 import { getSessionToken } from "./session";
 
-// TODO: add the remaining fields the members page needs
+export type AccountStatus = "ACTIVE" | "SUSPENDED";
+
 export type Member = {
   id: string;
   name: string;
   email: string;
   role: TenantRole;
+  status: AccountStatus;
 };
 
-export async function getMembers(tenantId: string): Promise<Member[]> {
+export type MembersResult =
+  | { ok: true; members: Member[] }
+  | { ok: false; status: number; message: string };
+
+/**
+ * Loads the active tenant's members. The API decides whether the user may see
+ * them, so a 403 is returned as a result for the page to show, not thrown.
+ */
+export async function getMembers(tenantId: string): Promise<MembersResult> {
   const token = await getSessionToken();
   if (!token) {
     redirect("/login");
   }
-  return fetchMembers(token, tenantId);
-}
 
-// Cached per token and tenant so switching tenants stays instant (see AGENTS.md)
-async function fetchMembers(token: string, tenantId: string): Promise<Member[]> {
-  "use cache";
-  const response = await apiFetch("/members", { token, tenantId });
-  if (!response.ok) {
-    throw new Error(`Failed to load members (${response.status})`);
+  // Not cached: who may see this list, and the roles in it, can change at any time
+  let response: Response;
+  try {
+    response = await apiFetch("/members", { token, tenantId });
+  } catch {
+    return { ok: false, status: 0, message: "Can't reach the API. Is it running?" };
   }
-  return response.json();
+
+  if (response.status === 401) {
+    redirect("/login");
+  }
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status,
+      message: await readApiError(response),
+    };
+  }
+  return { ok: true, members: await response.json() };
 }

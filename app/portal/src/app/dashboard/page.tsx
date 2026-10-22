@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { logout } from "../actions";
 import { getCurrentUser, type Tenant } from "@/lib/api";
@@ -157,10 +158,20 @@ function TenantDashboard({
 
       {isAdmin ? (
         <section className={card}>
-          <h2 className="font-semibold">Admin</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Only admins of {tenant.name} can see this.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="font-semibold">Admin</h2>
+              <p className="mt-1 text-sm text-zinc-500">
+                Only admins of {tenant.name} can see this.
+              </p>
+            </div>
+            <Link
+              href={`/dashboard/members?tenant=${tenant.slug}`}
+              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
+            >
+              Manage members
+            </Link>
+          </div>
           <dl className="mt-4 grid gap-4 sm:grid-cols-3">
             <div>
               <dt className="text-xs text-zinc-500">Seats</dt>

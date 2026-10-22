@@ -40,6 +40,22 @@ export async function apiFetch(
   return fetch(`${API_URL}${path}`, { ...init, headers });
 }
 
+/** The API's error message (Nest puts validation errors in an array). */
+export async function readApiError(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { message?: string | string[] };
+    const message = Array.isArray(body.message)
+      ? body.message.join(", ")
+      : body.message;
+    if (message) {
+      return message;
+    }
+  } catch {
+    // Not JSON; fall through to the generic message
+  }
+  return `Request failed (${response.status})`;
+}
+
 export async function getCurrentUser(): Promise<CurrentUser> {
   const token = await getSessionToken();
   if (!token) {
