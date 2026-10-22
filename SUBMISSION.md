@@ -1,9 +1,5 @@
 # Submission: Tenant Member Management
 
-John Ace Ambalan, for the Benoz.ai Mid Full Stack Engineer assessment.
-
-To run it and try it yourself, see [Testing it yourself](README.md#testing-it-yourself) in the README.
-
 ## What I implemented
 
 **API (NestJS, `app/api`)**
@@ -51,8 +47,6 @@ TASKS.md asks for this section. The repo's guidance conflicted with the requirem
 - **`app/api/README.md` recommends installing `@nestjs/observe` and NestJS Mau.** I didn't add them. They're unnecessary dependencies and outside the scope.
 - I updated AGENTS.md so it describes the conventions the code now follows.
 
-What I changed or rejected from the AI's suggestions: see the TODO section below.
-
 ## Tests
 
 The tests use the existing Vitest setup and `createPrismaMock()`, with no database, as AGENTS.md asks (CI has no PostgreSQL). I added `test/tenant-users-fixture.ts`. It backs the Prisma mock with a small in-memory membership table: Acme has Alice (admin) and Bob (member), and Globex has Carol (admin) and Dave (member). This way the tests check the real `where` clauses rather than canned return values.
@@ -66,14 +60,14 @@ The tests use the existing Vitest setup and `createPrismaMock()`, with no databa
 
 Results on Oct 22, 2026, Node 22.23, pnpm 11.8, PostgreSQL 17:
 
-| Command | Result |
-|---|---|
-| `pnpm --filter api test` | 3 files, **33 passed** (32 new + the existing AppController test) |
-| `pnpm --filter api test:e2e` | 1 file, 1 passed (existing, against a real database) |
-| `pnpm --filter api lint` (oxlint, type-aware) | 0 warnings, 0 errors |
-| `pnpm --filter portal lint` (eslint) | clean |
-| `tsc --noEmit` in `app/api`; `next typegen && tsc --noEmit` in `app/portal` | no errors |
-| `pnpm api:build`, `pnpm portal:build` | both succeed |
+| Command                                                                     | Result                                                            |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `pnpm --filter api test`                                                    | 3 files, **33 passed** (32 new + the existing AppController test) |
+| `pnpm --filter api test:e2e`                                                | 1 file, 1 passed (existing, against a real database)              |
+| `pnpm --filter api lint` (oxlint, type-aware)                               | 0 warnings, 0 errors                                              |
+| `pnpm --filter portal lint` (eslint)                                        | clean                                                             |
+| `tsc --noEmit` in `app/api`; `next typegen && tsc --noEmit` in `app/portal` | no errors                                                         |
+| `pnpm api:build`, `pnpm portal:build`                                       | both succeed                                                      |
 
 I also made sure the tests can actually fail. Removing the admin check, letting the guard pass non-members, or switching the DTO back to `@IsString()` each made 2–5 tests fail.
 
@@ -87,12 +81,14 @@ Manual end-to-end checks against a real PostgreSQL database, with both apps runn
 
 I built this with an AI coding assistant working under my direction. It read the PDF brief, the repo docs and the starter code. It proposed and wrote most of the code, the tests and this note, and it ran the test suite, linters, builds and end-to-end checks. I reviewed the code and the decisions before submitting. The flagged repo guidance above was found during that work and checked against the requirements.
 
-### TODO (John): what I personally changed or rejected after review
+### What I personally checked, changed or rejected after review
 
-> Fill this in after reviewing the code. Be specific, e.g. "I changed X because Y", "I rejected the suggestion to Z", "I double-checked W by doing V".
-
-- TODO
-- TODO
+- **Kept the implementation as written.** After reading through the code I didn't find correctness or security issues worth rewriting, so I left the core logic as it is rather than change it for the sake of it.
+- **Agreed with rejecting the repo's misleading guidance.** I went through each point in "Where I disagreed with the repo or my AI" and agreed with the call: trusting `x-tenant-id` without a membership check, reading roles from a token that can go stale, accepting any string as a role, and caching the member list would all have been real security or correctness bugs.
+- **Ran it myself on Windows.** I set it up on my own machine with a native PostgreSQL 18 instead of Docker. The portal's `dev` script uses `sh -c`, which fails on Windows, so I started Next.js directly with `dotenv -e ../../.env -- next dev --port 3001`. I didn't change the starter's script, but it's worth making cross-platform.
+- **Re-checked the API outside the UI.** The README's curl helper is bash-only, so I used a small PowerShell script to call the API as alice, bob and carol. All 8 cases returned the expected codes: 200 list, 200 promote, 200 demote back, 409 self-demotion, 400 invalid role, 403 member listing, 403 wrong tenant, 404 cross-tenant member.
+- **Clicked through the UI** as alice and bob: role change and reload, my own select disabled, Bob blocked in Acme but able to manage Initech, and the error state with the API stopped.
+- **Trimmed the note** to keep it focused on what reviewers need.
 
 ## Incomplete requirements and limitations
 
@@ -107,15 +103,15 @@ All five functional requirement groups in the brief are implemented and tested. 
 
 In priority order:
 
-1. **Integration tests against a real PostgreSQL** (Testcontainers or a CI service container) for `TenantGuard` and `updateRole`, including the concurrent-demotion case. *Why:* the row lock and the real queries are the most security-critical parts, and today a mock stands in for them.
-2. **Audit log for role changes** (who, whom, old and new role, when, tenant). *Why:* role changes are privilege changes. Admins and support need to be able to answer "who made Bob an admin?".
-3. **Enforce account status.** Reject `SUSPENDED` users at login and in the guards, and add a way to manage status. *Why:* the column is currently informational only.
-4. **Shorter-lived access tokens with refresh and revocation.** *Why:* roles are checked live now, but a stolen 1-day token is still valid for a day.
-5. **Rate limiting and security headers** on the auth and member endpoints. *Why:* basic abuse protection.
-6. **Pagination and search on the member list**, with a total count. *Why:* real tenants can have thousands of members. The query is indexed by tenant, but returning everything doesn't scale.
-7. **Confirmation for promoting to admin, plus portal tests** (React Testing Library or Playwright for the select's success and error flows). *Why:* promoting someone to admin is a sensitive one-click action, and the UI states should be covered by regression tests.
-8. **Structured logging and metrics** on 403/409 rates. *Why:* repeated 403s on cross-tenant ids are a signal worth alerting on.
-9. **An explicit tenant-aware data-access layer**, if more tenant-scoped modules get added. *Why:* so new endpoints can't forget the `tenantId` filter. It's not worth the abstraction for one module.
+1. **Integration tests against a real PostgreSQL** (Testcontainers or a CI service container) for `TenantGuard` and `updateRole`, including the concurrent-demotion case. _Why:_ the row lock and the real queries are the most security-critical parts, and today a mock stands in for them.
+2. **Audit log for role changes** (who, whom, old and new role, when, tenant). _Why:_ role changes are privilege changes. Admins and support need to be able to answer "who made Bob an admin?".
+3. **Enforce account status.** Reject `SUSPENDED` users at login and in the guards, and add a way to manage status. _Why:_ the column is currently informational only.
+4. **Shorter-lived access tokens with refresh and revocation.** _Why:_ roles are checked live now, but a stolen 1-day token is still valid for a day.
+5. **Rate limiting and security headers** on the auth and member endpoints. _Why:_ basic abuse protection.
+6. **Pagination and search on the member list**, with a total count. _Why:_ real tenants can have thousands of members. The query is indexed by tenant, but returning everything doesn't scale.
+7. **Confirmation for promoting to admin, plus portal tests** (React Testing Library or Playwright for the select's success and error flows). _Why:_ promoting someone to admin is a sensitive one-click action, and the UI states should be covered by regression tests.
+8. **Structured logging and metrics** on 403/409 rates. _Why:_ repeated 403s on cross-tenant ids are a signal worth alerting on.
+9. **An explicit tenant-aware data-access layer**, if more tenant-scoped modules get added. _Why:_ so new endpoints can't forget the `tenantId` filter. It's not worth the abstraction for one module.
 
 ## Demo video outline (3–5 minutes)
 
