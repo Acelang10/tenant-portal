@@ -9,6 +9,8 @@ A multi-tenant portal. Users sign in with a username and password and switch bet
 
 Both apps live in one pnpm workspace and share a single `.env` at the repo root.
 
+**Live demo:** portal https://tenant-portal-rosy.vercel.app (sign in as `alice` / `123456`), API https://tenant-portal-api.onrender.com. The API runs on Render's free tier and sleeps when idle, so the first request can take about a minute.
+
 > **Doing the assessment?** Start with [TASKS.md](TASKS.md). It explains how to fork this repo, what to build and how to submit.
 >
 > **Reviewing the member management submission?** See [SUBMISSION.md](SUBMISSION.md) for what was built, the design decisions and test results, and [Testing it yourself](#testing-it-yourself) below to try it.

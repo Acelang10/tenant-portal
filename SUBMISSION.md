@@ -97,7 +97,7 @@ All five functional requirement groups in the brief are implemented and tested. 
 - **The empty state is hard to reach with real data.** Only admins can view the list, and an admin is always a member. The UI handles an empty array, but you can't trigger it from the seeded data.
 - **No portal-side automated tests.** The portal has no test framework set up, and the brief asked to use the existing one, so the UI was verified manually and with a headless browser rather than with committed tests. Server behaviour, which is where the security lives, is covered.
 - **The API tests use a Prisma mock**, following the repo convention. The row lock and the real SQL are verified manually against PostgreSQL, not in CI.
-- **Hosting (Railway/Vercel) from TASKS.md is not done.** The PDF brief doesn't ask for it, and it needs my own accounts.
+- **The API and PostgreSQL are hosted on Render's free tier instead of Railway.** Railway had a platform outage on Oct 22, 2026 that blocked builds for free and hobby workspaces, so I moved the API and database to Render. The portal is on Vercel as planned: https://tenant-portal-rosy.vercel.app (API: https://tenant-portal-api.onrender.com). The free Render service sleeps when idle, so the first request after a while can take about a minute.
 
 ## What I'd improve before production
 

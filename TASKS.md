@@ -127,6 +127,6 @@ The API and its database go on **Railway**, and the portal goes on **Vercel**. D
 ### 3. Submission
 
 - [ ] Add the live URLs here and to the README:
-  - Portal: `https://…vercel.app`
-  - API: `https://…up.railway.app`
+  - Portal: https://tenant-portal-rosy.vercel.app
+  - API: https://tenant-portal-api.onrender.com (hosted on Render instead of Railway, see SUBMISSION.md)
 - [ ] Make sure no real secrets are committed. `.env` is git-ignored; only `.env.example` is tracked.
