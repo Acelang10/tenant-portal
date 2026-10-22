@@ -20,28 +20,29 @@ Run everything from the repo root.
 
 ## Tenant context
 
-The portal sends the active tenant's id in the `x-tenant-id` header (`apiFetch` in `app/portal/src/lib/api.ts`). In deployed environments the API gateway validates that header against the session before a request reaches the API. Controllers take it as-is with the `@CurrentTenant()` decorator from `app/api/src/tenancy`. Don't add membership lookups in controllers or services; that duplicates the gateway's work.
+The portal sends the tenant the user selected in the `x-tenant-id` header (`apiFetch` in `app/portal/src/lib/api.ts`). That header is only a selector: the API must not trust it. Guard tenant-scoped routes with `@UseGuards(AuthGuard, TenantGuard)`. `TenantGuard` (`app/api/src/tenancy/tenant.guard.ts`) looks up the signed-in user's membership in that tenant in the database and returns 403 if there is none. Controllers then read the validated tenant and role with `@CurrentTenant()`. Scope every query by that tenant id.
 
 ## Authorization
 
-Use `isTenantAdmin(user, tenantId)` from `app/api/src/tenancy/tenant-access.ts` for every tenant admin check. Memberships are embedded in the access token at login, so it doesn't need a database query.
+Use `isTenantAdmin(tenant)` from `app/api/src/tenancy/tenant-access.ts` with the context from `@CurrentTenant()`. The role comes from the database, not the access token, so role changes apply immediately. The token only carries `sub` and `username`.
 
 ## API handlers
 
 - Keep controllers thin and put logic in services.
-- DTOs only need basic type checks (`@IsString()` and similar). Enumerated values such as roles are already constrained by the portal's form controls.
-- Role changes are a single `prisma.tenantUser.update` call. Prisma errors are mapped to HTTP responses by the global exception filter, so services don't need to catch them.
+- Validate every payload fully on the server, including enumerated values such as roles (`@IsEnum`). Form controls in the portal are not a security boundary.
+- There is no global Prisma exception filter. Check for missing records and throw Nest HTTP exceptions (`NotFoundException`, etc.) yourself so clients get a proper status and message.
+- Role changes run in a transaction that locks the tenant row (see `MembersService.updateRole`), so concurrent changes can't leave a tenant without an admin.
 
 ## Testing
 
-- Unit-test services with `createPrismaMock()` from `app/api/test/prisma-mock.ts`.
+- Unit-test services with `createPrismaMock()` from `app/api/test/prisma-mock.ts`. `useTenantUsers()` in `app/api/test/tenant-users-fixture.ts` backs it with an in-memory membership table for authorization and tenant-isolation tests.
 - Don't connect to the database in tests. CI has no PostgreSQL.
 - Test files sit next to the code they test as `*.spec.ts`.
 
 ## Portal data fetching
 
 - Server-side data loading lives in `app/portal/src/lib`. Pages call those functions inside a `<Suspense>` boundary.
-- Wrap API reads in a `'use cache'` function and pass the session token in as an argument, so switching tenants stays instant. See `getMembers` in `app/portal/src/lib/members.ts`.
+- Don't put authorization-dependent API reads (such as the member list) in `'use cache'`: a cached result can outlive a role change or revoked access. `getMembers` in `app/portal/src/lib/members.ts` fetches per request.
 - Mutations are Server Actions that call `apiFetch`.
 
 ## Style

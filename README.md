@@ -10,6 +10,8 @@ A multi-tenant portal. Users sign in with a username and password and switch bet
 Both apps live in one pnpm workspace and share a single `.env` at the repo root.
 
 > **Doing the assessment?** Start with [TASKS.md](TASKS.md). It explains how to fork this repo, what to build and how to submit.
+>
+> **Reviewing the member management submission?** See [SUBMISSION.md](SUBMISSION.md) for what was built, the design decisions and test results, and [Testing it yourself](#testing-it-yourself) below to try it.
 
 ## Prerequisites
 
@@ -39,6 +41,97 @@ pnpm portal:dev
 ```
 
 Open http://localhost:3001 and sign in with one of the test accounts below.
+
+## Testing it yourself
+
+Ports: **API on http://localhost:3000**, **portal on http://localhost:3001**, PostgreSQL on **localhost:5433**.
+
+### Setup (once)
+
+```bash
+pnpm install
+cp .env.example .env
+pnpm db:up        # PostgreSQL 17 in Docker (docker compose), port 5433
+pnpm db:migrate   # applies both migrations, including the account status column
+pnpm db:seed      # 7 tenants, 10 users, password 123456 for everyone
+```
+
+No Docker? Any local PostgreSQL works: create a `tenant_portal` user and database (the user needs `CREATEDB` for `prisma migrate dev`) and point `DATABASE_URL` in `.env` at it.
+
+### Run
+
+```bash
+pnpm api:dev      # terminal 1, http://localhost:3000
+pnpm portal:dev   # terminal 2, http://localhost:3001
+```
+
+### Automated checks
+
+```bash
+pnpm --filter api test        # unit + HTTP tests (no database needed)
+pnpm --filter api test:e2e    # boots the full app; needs the .env and database
+pnpm --filter api lint
+pnpm --filter portal lint
+pnpm api:build && pnpm portal:build   # type-checks both apps
+```
+
+### Who to sign in as
+
+| Tenant | Admin | Member |
+|---|---|---|
+| Acme Corporation (`acme`) | `alice` | `bob` |
+| Globex Industries (`globex`) | `alice` | `carol` |
+| Initech (`initech`) | `bob` | `carol` |
+
+To switch user in the portal, click **Sign out** on the dashboard and sign in as someone else (or use a private window per user). The members page is at `/dashboard/members?tenant=<slug>`, and admins get a **Manage members** button on the dashboard.
+
+To act as different users with curl, paste this into a shell (needs `node` on the PATH, which you already have):
+
+```bash
+API=http://localhost:3000
+login() {
+  curl -s -X POST $API/auth/login -H 'content-type: application/json' \
+    -d "{\"username\":\"$1\",\"password\":\"123456\"}" | node -pe 'JSON.parse(require("fs").readFileSync(0)).accessToken'
+}
+tenant_id() { # tenant_id <token> <slug>
+  curl -s $API/auth/me -H "Authorization: Bearer $1" | node -pe "JSON.parse(require('fs').readFileSync(0)).tenants.find(t => t.slug === '$2').id"
+}
+user_id() { curl -s $API/auth/me -H "Authorization: Bearer $1" | node -pe 'JSON.parse(require("fs").readFileSync(0)).id'; }
+
+ALICE=$(login alice); BOB=$(login bob); CAROL=$(login carol)
+ACME=$(tenant_id $ALICE acme); INITECH=$(tenant_id $BOB initech)
+ALICE_ID=$(user_id $ALICE); BOB_ID=$(user_id $BOB); CAROL_ID=$(user_id $CAROL)
+
+# act_as <token> <tenant id> [curl args...]
+act_as() { t=$1; tenant=$2; shift 2; curl -s -H "Authorization: Bearer $t" -H "x-tenant-id: $tenant" -H 'content-type: application/json' "$@"; echo; }
+```
+
+Then:
+
+```bash
+act_as $ALICE $ACME $API/members                                                # 200, Alice + Bob
+act_as $ALICE $ACME -X PATCH $API/members/$BOB_ID -d '{"role":"ADMIN"}'         # 200, Bob is now Admin
+act_as $ALICE $ACME -X PATCH $API/members/$BOB_ID -d '{"role":"MEMBER"}'        # 200, back to Member
+act_as $ALICE $ACME -X PATCH $API/members/$ALICE_ID -d '{"role":"MEMBER"}'      # 409, can't remove own admin access
+act_as $ALICE $ACME -X PATCH $API/members/$BOB_ID -d '{"role":"OWNER"}'         # 400, invalid role
+act_as $BOB   $ACME $API/members                                                # 403, Bob is only a member of Acme
+act_as $ALICE $INITECH $API/members                                             # 403, Alice isn't in Initech
+act_as $ALICE $ACME -X PATCH $API/members/$CAROL_ID -d '{"role":"ADMIN"}'       # 404, Carol isn't in Acme
+```
+
+`pnpm db:seed` resets every membership to the table above, so run it whenever you want a clean slate.
+
+### Manual checklist
+
+- [ ] **View members:** sign in as `alice`, open Acme, click **Manage members**. You see Alice and Bob with name, email, status and role. A skeleton shows while it loads.
+- [ ] **Change a role:** as `alice`, set Bob to Admin. "Role updated" appears and it survives a reload. Set him back to Member.
+- [ ] **Self-demotion blocked:** Alice's own role select is disabled ("That's you"). The API also refuses it: the `ALICE_ID` curl above returns 409.
+- [ ] **Member can't edit:** sign in as `bob` and open `/dashboard/members?tenant=acme`. You get "You can't manage members of this tenant" and no Manage members button on the Acme dashboard. In Initech, where Bob is admin, he can manage Carol.
+- [ ] **Cross-tenant blocked:** as `alice`, the curl calls with `$INITECH` (403) and `$CAROL_ID` in Acme (404) fail and nothing changes.
+- [ ] **Error state:** stop the API and reload the members page. You get "Couldn't load members" with a Try again button.
+- [ ] **Access revoked while the page is open:** as `bob`, open Initech's members page. In a terminal, demote Bob directly in the database:
+  `docker compose exec db psql -U tenant_portal -c "update tenant_users set role='MEMBER' where user_id=(select id from users where username='bob') and tenant_id=(select id from tenants where slug='initech')"`.
+  Back in the browser, change Carol's role: it shows "Only tenant admins can manage members" and the select reverts. Run `pnpm db:seed` to restore.
 
 ## Test accounts
 
@@ -99,6 +192,7 @@ All variables live in the root `.env`. `.env.example` lists every one of them.
 - **Login:** the portal posts the username and password to `POST /auth/login`. The API checks the bcrypt hash and returns a JWT. The portal stores it in an httpOnly `session` cookie, so browser JavaScript can't read it.
 - **Dashboard:** the portal's server calls `GET /auth/me` with that token to get the user and their tenants. The selected tenant is kept in the URL (`/dashboard?tenant=acme`).
 - **Route protection:** `app/portal/src/proxy.ts` sends visitors without a session cookie to `/login`. The dashboard also redirects to `/login` when the API rejects the token, for example once it expires.
+- **Members:** `/dashboard/members?tenant=<slug>` calls `GET /members` and `PATCH /members/:userId` with the selected tenant in `x-tenant-id`. The API's `TenantGuard` checks the user's membership and role in the database on every request; the header is never trusted on its own.
 
 ### Data model
 
